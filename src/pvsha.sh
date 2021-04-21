@@ -24,16 +24,11 @@ pvshacheck ()
         else
             echo empty
         fi
-    done < $file
+    done < "$file"
     if [ ! $failed -eq 0 ] ; then
         echo "sha256sum: Attention : $failed somme de contrôle ne correspond pas"
     fi
 }
-
-# echo $@ all arg
-# pvsha "$1"
-
-# pvshacheck "sha256.txt"
 
 check=""
 
@@ -44,7 +39,7 @@ while (( "$#" )); do
     case "$1" in
         -c | --check)
             if [ -n "$2" ] && [ ${2:0:1} != "-" ]; then
-                check=$2
+                check="$2"
                 shift 2
             else
                 echo "Error: Argument for $1 is missing" >&2
@@ -56,7 +51,7 @@ while (( "$#" )); do
             exit 1
         ;;
         *) # preserve positional arguments
-            if [ -z $PARAMS ] ; then
+            if [ -z "$PARAMS" ] ; then
                 PARAMS="$1"
             else
                 PARAMS="$PARAMS $1"
@@ -68,7 +63,7 @@ done
 
 # echo $PARAMS
 
-if [ ! -z $check ] ; then
+if [ ! -z "$check" ] ; then
     pvshacheck "$check"
 else
     pvsha "$PARAMS"
