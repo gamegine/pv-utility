@@ -8,18 +8,20 @@ help ()
     echo "    -h, --help: show this help"
     echo "    -a, --alg:  algorithm to use (default: sha256)"
     echo "      available algorithms: sha512, sha256, sha3, sha1, md5"
-    echo "     -c, --check: check hash list in file"
+    echo "    -c, --check: check hash list in file"
 
     echo "  Example: $0 file.txt"
-    echo "  Example: $0 -a md5 file.txt"
-    echo "  Example: $0 -c hash.sha256"
+    echo "  Example: $0 file.txt >> SHA256SUMS"
+    echo "  Example: $0 -c SHA256SUMS"
+    echo "  Example: $0 -a md5 file.txt >> MD5SUMS"
+    echo "  Example: $0 -a md5 -c MD5SUMS"
 }
 
 pvsha ()
 {
     file="$1"
     escapefile="${file//\//\\/}" # fix / in sed
-    pv "$file" | $algorithm | sed "s/-/$escapefile/"
+    pv -N "$file" "$file" | $algorithm | sed "s/-/$escapefile/"
 }
 
 pvshacheck ()
@@ -28,7 +30,7 @@ pvshacheck ()
     file="$1"
     while read -r sha path; do
         if [ ! -z "$path" ] && [ ! -z "$sha" ]; then
-            res=$(pv "$path" | $algorithm)
+            res=$(pv -N "$path" "$path" | $algorithm)
             if [ "$res" == "$sha  -" ] ; then
                 #echo "$path: Réussi"
                 echo "$path: OK"
