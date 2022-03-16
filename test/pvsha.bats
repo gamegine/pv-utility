@@ -23,6 +23,13 @@
     [ "$(pvsha.sh "test whitespace.txt")" == "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08  test whitespace.txt" ]
 }
 
+@test "sha256 multiple files" {
+    run sha256sum test.txt test.txt
+    [ "$status" -eq 0 ]
+    [ "${lines[0]}" = "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08  test.txt" ]
+    [ "${lines[1]}" = "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08  test.txt" ]
+}
+
 # algorithms 
 
 @test "pvsha with algorithm sha512" {
@@ -59,6 +66,13 @@
 }
 @test "sha256 check using pv with whitespace" {
     [ "$(pvsha.sh -c "test whitespace.txt.sha256")" == "test whitespace.txt: OK" ]
+}
+
+@test "sha256 check multiple files" {
+    run sha256sum -c test.txt.sha256 -c test.txt.sha256
+    [ "$status" -eq 0 ]
+    [ "${lines[0]}" = "test.txt: OK" ]
+    [ "${lines[1]}" = "test.txt: OK" ]
 }
 
 # check with algorithms 

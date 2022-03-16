@@ -20,52 +20,57 @@ help ()
 
 pvsha ()
 {
-    file="$1"
-    escapefile="${file//\//\\/}" # fix / in sed
-    pv -N "$file" $PVPARAMS "$file" | $algorithm | sed "s/-/$escapefile/"
+    for file in "$@";
+    do
+        escapefile="${file//\//\\/}" # fix / in sed
+        pv -N "$file" $PVPARAMS "$file" | $algorithm | sed "s/-/$escapefile/"
+    done
 }
 
 pvshacheck ()
 {
-    failed=0
-    file="$1"
-    while read -r sha path; do
-        if [ ! -z "$path" ] && [ ! -z "$sha" ]; then
-            res=$(pv -N "$path" $PVPARAMS "$path" | $algorithm)
-            if [ "$res" == "$sha  -" ] ; then
-                #echo "$path: Réussi"
-                echo "$path: OK"
+    for file in "$@";
+    do
+        failed=0
+        while read -r sha path; do
+            if [ ! -z "$path" ] && [ ! -z "$sha" ]; then
+                res=$(pv -N "$path" $PVPARAMS "$path" | $algorithm)
+                if [ "$res" == "$sha  -" ] ; then
+                    #echo "$path: Réussi"
+                    echo "$path: OK"
+                else
+                    echo "$path: FAILED"
+                    failed=$(($failed+1))
+                fi
             else
-                echo "$path: FAILED"
-                failed=$(($failed+1))
+                echo empty
             fi
-        else
-            echo empty
+        done < "$file"
+        if [ ! $failed -eq 0 ] ; then
+            echo "$algorithm: Attention : $failed somme de contrôle ne correspond pas"
         fi
-    done < "$file"
-    if [ ! $failed -eq 0 ] ; then
-        echo "$algorithm: Attention : $failed somme de contrôle ne correspond pas"
-    fi
+    done
 }
 
 # hashing algorithm
 algorithm="sha256sum"
 
 # check file list
-check=""
+check=()
 
 # pv params
 PVPARAMS=""
 
 # parse input parameters and set config variables
 
-# variable to store all arguments that are not config options
-PARAMS=""
+# variable to store all arguments that are not config options (list of files)
+PARAMS=()
+
 while (( "$#" )); do
     case "$1" in
         -c | --check)
             if [ -n "$2" ] && [ ${2:0:1} != "-" ]; then
-                check="$2"
+                check+=("$2")
                 shift 2
             else
                 echo "Error: Argument for $1 is missing" >&2
@@ -121,11 +126,7 @@ while (( "$#" )); do
             exit 1
         ;;
         *) # preserve positional arguments
-            if [ -z "$PARAMS" ] ; then
-                PARAMS="$1"
-            else
-                PARAMS="$PARAMS $1"
-            fi
+            PARAMS+=("$1")
             shift
         ;;
     esac
@@ -134,7 +135,7 @@ done
 # echo $PARAMS
 
 if [ ! -z "$check" ] ; then
-    pvshacheck "$check"
+    pvshacheck "${check[@]}"
 else
-    pvsha "$PARAMS"
+    pvsha "${PARAMS[@]}"
 fi
