@@ -29,11 +29,14 @@ pvsha ()
 
 pvshacheck ()
 {
+    havefailed=0 # for exit status
     for file in "$@";
     do
         failed=0
+        count=0
         while read -r sha path; do
             if [ ! -z "$path" ] && [ ! -z "$sha" ]; then
+                count=$((count+1))
                 res=$(pv -N "$path" $PVPARAMS "$path" | $algorithm)
                 if [ "$res" == "$sha  -" ] ; then
                     #echo "$path: Réussi"
@@ -47,9 +50,13 @@ pvshacheck ()
             fi
         done < "$file"
         if [ ! $failed -eq 0 ] ; then
-            echo "$algorithm: Attention : $failed somme de contrôle ne correspond pas"
+            echo "$algorithm: WARNING: $failed of $count computed checksums did NOT match"
+            havefailed=1
         fi
     done
+    if [ ! $havefailed -eq 0 ] ; then
+        exit 1
+    fi  
 }
 
 # hashing algorithm
