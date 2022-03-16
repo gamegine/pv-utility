@@ -6,9 +6,10 @@ help ()
     echo "  $0 [options] [<files>...]"
     echo "  options:"
     echo "    -h, --help: show this help"
-    echo "    -a, --alg:  algorithm to use (default: sha256)"
+    echo "    -a, --algorithm <algo>:  algorithm to use (default: sha256)"
     echo "      available algorithms: sha512, sha256, sha3, sha1, md5"
-    echo "    -c, --check: check hash list in file"
+    echo "    -c, --check <file>: check hash list in file"
+    echo "    -l, --rate-limit <rate> : limit transfer to RATE bytes per second"
 
     echo "  Example: $0 file.txt"
     echo "  Example: $0 file.txt >> SHA256SUMS"
@@ -21,7 +22,7 @@ pvsha ()
 {
     file="$1"
     escapefile="${file//\//\\/}" # fix / in sed
-    pv -N "$file" "$file" | $algorithm | sed "s/-/$escapefile/"
+    pv -N "$file" $PVPARAMS "$file" | $algorithm | sed "s/-/$escapefile/"
 }
 
 pvshacheck ()
@@ -30,7 +31,7 @@ pvshacheck ()
     file="$1"
     while read -r sha path; do
         if [ ! -z "$path" ] && [ ! -z "$sha" ]; then
-            res=$(pv -N "$path" "$path" | $algorithm)
+            res=$(pv -N "$path" $PVPARAMS "$path" | $algorithm)
             if [ "$res" == "$sha  -" ] ; then
                 #echo "$path: Réussi"
                 echo "$path: OK"
@@ -52,6 +53,9 @@ algorithm="sha256sum"
 
 # check file list
 check=""
+
+# pv params
+PVPARAMS=""
 
 # parse input parameters and set config variables
 
@@ -94,6 +98,16 @@ while (( "$#" )); do
                 esac
                 shift 2
             else
+                echo "Error: Argument for $1 is missing" >&2
+                exit 1
+            fi
+        ;;
+        -l | --rate-limit)
+            if [ -n "$2" ] && [ ${2:0:1} != "-" ]; then # $s is number ?
+                PVPARAMS="$PVPARAMS -L $2"
+                shift 2
+            else
+                # pv: -L: integer argument expected
                 echo "Error: Argument for $1 is missing" >&2
                 exit 1
             fi
