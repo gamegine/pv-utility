@@ -1,5 +1,12 @@
 #!/bin/bash
 
+## file structure
+# functions
+# global vars
+# parse input
+# call function
+
+## functions
 help ()
 {
     echo "Usage:"
@@ -59,20 +66,18 @@ pvshacheck ()
     fi  
 }
 
+## global vars
+
 # hashing algorithm
 algorithm="sha256sum"
-
+# pv params
+PVPARAMS=""
+# variable to store all arguments that are not config options (list of files)
+PARAMS=()
 # check file list
 check=()
 
-# pv params
-PVPARAMS=""
-
-# parse input parameters and set config variables
-
-# variable to store all arguments that are not config options (list of files)
-PARAMS=()
-
+## parse input parameters and set config variables
 while (( "$#" )); do
     case "$1" in
         -c | --check)
@@ -125,10 +130,11 @@ while (( "$#" )); do
             fi
         ;;
         -h | --help)
+            # stop execution and show help
             help
             exit 0
         ;;
-        -*|--*=) # unsupported flags
+        -* | --*) # unsupported flags
             echo "Error: Unsupported flag $1" >&2
             exit 1
         ;;
@@ -139,8 +145,7 @@ while (( "$#" )); do
     esac
 done
 
-# echo $PARAMS
-
+## finaly call the right function
 if [ ! -z "$check" ] ; then
     pvshacheck "${check[@]}"
 else
