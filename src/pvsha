@@ -17,6 +17,7 @@ help ()
     echo "      available algorithms: sha512, sha256, sha3, sha1, md5"
     echo "    -c, --check <file>: check hash list in file"
     echo "    -l, --rate-limit <rate> : limit transfer to RATE bytes per second"
+    echo "    -q, --quiet : do not display OK on each successful check"
 
     echo "  Example: $0 file.txt"
     echo "  Example: $0 file.txt >> SHA256SUMS"
@@ -47,7 +48,9 @@ pvshacheck ()
                 res=$(pv -N "$path" $PVPARAMS "$path" | $algorithm)
                 if [ "$res" == "$sha  -" ] ; then
                     #echo "$path: Réussi"
-                    echo "$path: OK"
+                    if [ -z "$quiet" ] ; then
+                        echo "$path: OK"
+                    fi
                 else
                     echo "$path: FAILED"
                     failed=$(($failed+1))
@@ -70,6 +73,7 @@ pvshacheck ()
 
 # hashing algorithm
 algorithm="sha256sum"
+quiet=""
 # pv params
 PVPARAMS=""
 # variable to store all arguments that are not config options (list of files)
@@ -128,6 +132,10 @@ while (( "$#" )); do
                 echo "Error: Argument for $1 is missing" >&2
                 exit 1
             fi
+        ;;
+        -q | --quiet)
+            quiet=1
+            shift
         ;;
         -h | --help)
             # stop execution and show help
