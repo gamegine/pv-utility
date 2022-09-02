@@ -1,0 +1,174 @@
+#!/bin/bash
+
+## file structure
+# functions
+# global vars
+# parse input
+# call function
+
+## functions
+help ()
+{
+    echo "Usage:"
+    echo "  $0 [options] [<files>...]"
+    echo "  options:"
+    echo "    -h, --help: show this help"
+    echo "    -a, --algorithm <algo>:  algorithm to use (default: sha256)"
+    echo "      available algorithms: sha512, sha256, sha3, sha1, md5"
+    echo "    -b, --binary : read in binary mode"
+    echo "    -c, --check <file>: check hash list in file"
+    echo "    -l, --rate-limit <rate> : limit transfer to RATE bytes per second"
+    echo "    -q, --quiet : do not display OK on each successful check"
+
+    echo "  Example: $0 file.txt"
+    echo "  Example: $0 file.txt >> SHA256SUMS"
+    echo "  Example: $0 -c SHA256SUMS"
+    echo "  Example: $0 -a md5 file.txt >> MD5SUMS"
+    echo "  Example: $0 -a md5 -c MD5SUMS"
+}
+
+pvsha ()
+{
+    for file in "$@";
+    do
+        escapefile="${file//\//\\/}" # fix / in sed
+        pv -N "$file" $PVPARAMS "$file" | $algorithm $HASHPARAMS | sed "s/-/$escapefile/"
+    done
+}
+
+pvshacheck ()
+{
+    havefailed=0 # for exit status
+    for file in "$@";
+    do
+        failed=0
+        count=0
+        while read -r sha path; do
+            if [ ! -z "$path" ] && [ ! -z "$sha" ]; then
+                # filename start by * is binary mode
+                BINARG=""
+                if [ "${path:0:1}" == "*" ] ; then
+                    path="${path#?}"
+                    BINARG="-b"
+                fi
+                count=$((count+1))
+                res=$(pv -N "$path" $PVPARAMS "$path" | $algorithm $BINARG)
+                if [ "$res" == "$sha  -" ] || [ "$res" == "$sha *-" ] ; then
+                    #echo "$path: Réussi"
+                    if [ -z "$quiet" ] ; then
+                        echo "$path: OK"
+                    fi
+                else
+                    echo "$path: FAILED"
+                    failed=$(($failed+1))
+                fi
+            else
+                echo empty
+            fi
+        done < "$file"
+        if [ ! $failed -eq 0 ] ; then
+            echo "$algorithm: WARNING: $failed of $count computed checksums did NOT match"
+            havefailed=1
+        fi
+    done
+    if [ ! $havefailed -eq 0 ] ; then
+        exit 1
+    fi  
+}
+
+## global vars
+
+# hashing algorithm
+algorithm="sha256sum"
+quiet=""
+# hash params
+HASHPARAMS=""
+# pv params
+PVPARAMS=""
+# variable to store all arguments that are not config options (list of files)
+PARAMS=()
+# check file list
+check=()
+
+## parse input parameters and set config variables
+while (( "$#" )); do
+    case "$1" in
+        -c | --check)
+            if [ -n "$2" ] && [ ${2:0:1} != "-" ]; then
+                check+=("$2")
+                shift 2
+            else
+                echo "Error: Argument for $1 is missing" >&2
+                exit 1
+            fi
+        ;;
+        -a | --algorithm)
+            if [ -n "$2" ] && [ ${2:0:1} != "-" ]; then
+                case $2 in
+                    sha256 | sha256sum)
+                        algorithm="sha256sum"
+                        ;;
+                    sha512 | sha512sum)
+                        algorithm="sha512sum"
+                        ;;
+                    sha3 | sha3sum)
+                        algorithm="sha3sum"
+                        ;;
+                    sha1 | sha1sum)
+                        algorithm="sha1sum"
+                        ;;
+                    md5 | md5sum)
+                        algorithm="md5sum"
+                        ;;
+                    *)
+                        echo "Error: $2 is not a valid algorithm" >&2
+                        echo "valid algorithms are: sha256, sha512, sha3, sha1, md5" >&2
+                        exit 1
+                        ;;
+                esac
+                shift 2
+            else
+                echo "Error: Argument for $1 is missing" >&2
+                exit 1
+            fi
+        ;;
+        -b | --binary)
+            HASHPARAMS="$HASHPARAMS -b"
+            shift
+        ;;
+        -l | --rate-limit)
+            if [ -n "$2" ] && [ ${2:0:1} != "-" ]; then # $s is number ?
+                PVPARAMS="$PVPARAMS -L $2"
+                shift 2
+            else
+                # pv: -L: integer argument expected
+                echo "Error: Argument for $1 is missing" >&2
+                exit 1
+            fi
+        ;;
+        -q | --quiet)
+            quiet=1
+            shift
+        ;;
+        -h | --help)
+            # stop execution and show help
+            help
+            exit 0
+        ;;
+        -* | --*) # unsupported flags
+            echo "Error: Unsupported flag $1" >&2
+            exit 1
+        ;;
+        *) # preserve positional arguments
+            PARAMS+=("$1")
+            shift
+        ;;
+    esac
+done
+
+## finaly call the right function
+if [ ! -z "$check" ] ; then
+    pvshacheck "${check[@]}"
+else
+    pvsha "${PARAMS[@]}"
+fi
