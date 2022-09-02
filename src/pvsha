@@ -15,6 +15,7 @@ help ()
     echo "    -h, --help: show this help"
     echo "    -a, --algorithm <algo>:  algorithm to use (default: sha256)"
     echo "      available algorithms: sha512, sha256, sha3, sha1, md5"
+    echo "    -b, --binary : read in binary mode"
     echo "    -c, --check <file>: check hash list in file"
     echo "    -l, --rate-limit <rate> : limit transfer to RATE bytes per second"
     echo "    -q, --quiet : do not display OK on each successful check"
@@ -31,7 +32,7 @@ pvsha ()
     for file in "$@";
     do
         escapefile="${file//\//\\/}" # fix / in sed
-        pv -N "$file" $PVPARAMS "$file" | $algorithm | sed "s/-/$escapefile/"
+        pv -N "$file" $PVPARAMS "$file" | $algorithm $HASHPARAMS | sed "s/-/$escapefile/"
     done
 }
 
@@ -44,9 +45,15 @@ pvshacheck ()
         count=0
         while read -r sha path; do
             if [ ! -z "$path" ] && [ ! -z "$sha" ]; then
+                # filename start by * is binary mode
+                BINARG=""
+                if [ "${path:0:1}" == "*" ] ; then
+                    path="${path#?}"
+                    BINARG="-b"
+                fi
                 count=$((count+1))
-                res=$(pv -N "$path" $PVPARAMS "$path" | $algorithm)
-                if [ "$res" == "$sha  -" ] ; then
+                res=$(pv -N "$path" $PVPARAMS "$path" | $algorithm $BINARG)
+                if [ "$res" == "$sha  -" ] || [ "$res" == "$sha *-" ] ; then
                     #echo "$path: Réussi"
                     if [ -z "$quiet" ] ; then
                         echo "$path: OK"
@@ -74,6 +81,8 @@ pvshacheck ()
 # hashing algorithm
 algorithm="sha256sum"
 quiet=""
+# hash params
+HASHPARAMS=""
 # pv params
 PVPARAMS=""
 # variable to store all arguments that are not config options (list of files)
@@ -122,6 +131,10 @@ while (( "$#" )); do
                 echo "Error: Argument for $1 is missing" >&2
                 exit 1
             fi
+        ;;
+        -b | --binary)
+            HASHPARAMS="$HASHPARAMS -b"
+            shift
         ;;
         -l | --rate-limit)
             if [ -n "$2" ] && [ ${2:0:1} != "-" ]; then # $s is number ?
